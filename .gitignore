@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Project data
+data/*.csv
+data/*.json
+logs/*.log
+output/*.png
+output/*.kml
+output/*.kmz
+
+# Keep directory structure
+!data/.gitkeep
+!logs/.gitkeep
+!output/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config backups
+config/*.bak
+config/*~

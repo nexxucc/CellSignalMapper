@@ -1,0 +1,84 @@
+# Cell Signal Mapper Configuration
+
+# RTL-SDR Settings
+rtl_sdr:
+  device_index: 0  # RTL-SDR device ID (0 for first device)
+  sample_rate: 2048000  # 2.048 MHz sample rate
+  gain: 40  # Manual gain (0-50) or 'auto'
+  ppm_error: 0  # Frequency correction in PPM
+
+# LTE Band Configuration
+# Currently supports Band 5 (850 MHz) for India
+# Future bands can be added here as hardware permits
+bands:
+  band_5:
+    name: "LTE Band 5 (850 MHz)"
+    enabled: true
+    downlink_start: 869000000  # 869 MHz
+    downlink_end: 894000000    # 894 MHz
+    uplink_start: 824000000    # 824 MHz (for reference only, not scanned)
+    uplink_end: 849000000      # 849 MHz
+    scan_points: 10        # Number of frequency points to scan
+
+  # Future band support (currently disabled due to hardware limits)
+  band_3:
+    name: "LTE Band 3 (1800 MHz)"
+    enabled: false
+    downlink_start: 1805000000
+    downlink_end: 1880000000
+    scan_points: 10
+
+  band_40:
+    name: "LTE Band 40 (2300 MHz)"
+    enabled: false
+    downlink_start: 2300000000
+    downlink_end: 2400000000
+    scan_points: 10
+
+# Scanning Parameters
+scan:
+  integration_time: 1.0  # Seconds to integrate signal at each frequency
+
+scanner:
+  dwell_time: 0.5  # Seconds to measure at each frequency point
+  samples_per_measurement: 256000  # Number of IQ samples per measurement
+  averaging_samples: 5  # Number of measurements to average for stability
+
+# GPS Settings
+gps:
+  enabled: true
+  port: "/dev/ttyUSB0"  # Serial port for GPS module on Raspberry Pi
+                         # Common options: /dev/ttyUSB0 (USB GPS), /dev/ttyAMA0 (GPIO UART)
+                         # This setting is ignored on Windows (uses WiFi Location Services)
+  baud_rate: 9600
+  timeout: 1.0
+  min_satellites: 4  # Minimum satellites for valid fix
+
+# Flight Pattern (for drone operations)
+flight:
+  altitude_levels: [10, 20, 30, 50]  # Meters - altitudes to scan at
+  grid_spacing: 50  # Meters between measurement points
+  hover_time: 3  # Seconds to hover at each point for measurement
+
+# Data Logging
+logging:
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_to_file: true
+  log_dir: "logs"
+  data_dir: "data"
+  save_raw_samples: false  # Save IQ samples (creates large files)
+
+# Visualization
+visualization:
+  output_dir: "output"
+  heatmap_resolution: 100  # Interpolation points per axis
+  color_scheme: "jet"  # matplotlib colormap (jet, viridis, plasma, etc)
+  min_signal_threshold: -120  # dBm - signals below this are considered noise
+  max_signal_threshold: -40   # dBm - typical max from nearby tower
+
+# Export Settings
+export:
+  kml_enabled: true
+  csv_enabled: true
+  json_enabled: true
+  altitude_layers: true  # Create separate KML layers for each altitude

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell:*)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe test_rtlsdr_minimal.py)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe -c \"import struct; print(''Python architecture:'', ''64-bit'' if struct.calcsize(''P'') * 8 == 64 else ''32-bit'')\")",
+      "Read(//c/Users/jainv/Downloads/rtlsdr-bin-w64_static//**)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe -c \"import rtlsdr; print(dir(rtlsdr))\")",
+      "Bash(./rtl_test.exe:*)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe -c \"import os; os.add_dll_directory(''C:\\\\Users\\\\jainv\\\\Downloads\\\\rtlsdr-bin-w64_static''); from rtlsdr import RtlSdr; print(''SUCCESS'')\")",
+      "Bash(C:/Users/jainv/anaconda3/python.exe test_rtlsdr_direct.py)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe test_full_system.py)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe -c \"import matplotlib; import pandas; import simplekml; print(''All viz libs OK'')\")",
+      "Bash(C:/Users/jainv/anaconda3/python.exe test_visualizations.py)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe test_error_handling.py)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe test_comprehensive.py)",
+      "Bash(C:/Users/jainv/anaconda3/python.exe -c \"import yaml; config = yaml.safe_load(open(''config/config.yaml'')); print(type(config[''bands''][''band_5''][''downlink_start'']))\")",
+      "Bash(C:/Users/jainv/anaconda3/python.exe -c \"import yaml; config = yaml.safe_load(open(''config/config.yaml'')); print(''Type:'', type(config[''bands''][''band_5''][''downlink_start''])); print(''Value:'', config[''bands''][''band_5''][''downlink_start''])\")",
+      "Bash(C:/Users/jainv/anaconda3/python.exe src/main.py --mode single)",
+      "Bash(grep:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
