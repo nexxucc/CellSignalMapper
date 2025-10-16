@@ -1,6 +1,7 @@
 """
 GPS Module
 Handles GPS coordinate acquisition from serial GPS devices
+Optional: HMC5883L compass support via I2C
 """
 
 import serial
@@ -21,15 +22,18 @@ class GPSCoordinate:
                  longitude: float,
                  altitude: Optional[float] = None,
                  num_satellites: int = 0,
+                 heading: Optional[float] = None,
                  timestamp: Optional[datetime] = None):
         self.latitude = latitude
         self.longitude = longitude
         self.altitude = altitude
         self.num_satellites = num_satellites
+        self.heading = heading  # Compass heading in degrees (0-360)
         self.timestamp = timestamp or datetime.now()
 
     def __repr__(self):
-        return f"GPSCoordinate(lat={self.latitude:.6f}, lon={self.longitude:.6f}, alt={self.altitude}m, sats={self.num_satellites})"
+        heading_str = f", heading={self.heading:.1f}°" if self.heading is not None else ""
+        return f"GPSCoordinate(lat={self.latitude:.6f}, lon={self.longitude:.6f}, alt={self.altitude}m, sats={self.num_satellites}{heading_str})"
 
     def is_valid(self, min_satellites: int = 4) -> bool:
         """Check if GPS fix is valid"""
@@ -55,7 +59,7 @@ class GPSReader:
 
     def connect(self) -> bool:
         """
-        Connect to GPS device
+        Connect to GPS device and optional compass
 
         Returns:
             True if successful, False otherwise
@@ -252,3 +256,5 @@ class MockGPSReader(GPSReader):
         """Simulate GPS fix acquisition"""
         logger.info("Mock GPS fix acquired (simulated)")
         return self.read_position()
+
+

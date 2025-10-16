@@ -167,82 +167,98 @@ pip install -r requirements.txt
 
 ## Part 5: Configure GPS Module
 
-### 5.1 Connect GPS Hardware
+### 5.1 GPS Module Hardware Connection
 
-**USB GPS:**
-- Simply plug into USB port
-- Device appears as `/dev/ttyUSB0` (or `/dev/ttyACM0` for some modules)
+**IMPORTANT:** You are using the **ReadytoSky NEO-M8N GPS** module (round-shaped).
 
-**UART GPS (using GPIO pins):**
+📖 **See `GPS_WIRING_GUIDE.md` for complete wiring instructions with diagrams!**
+
+**Quick Summary:**
+
+**ReadytoSky NEO-M8N (6-pin connector) → Raspberry Pi 5:**
 ```
-GPS Module → Raspberry Pi
-VCC        → Pin 4 (5V)
-GND        → Pin 6 (GND)
-TX         → Pin 10 (GPIO15 / RXD)
-RX         → Pin 8 (GPIO14 / TXD)
+GPS Pin 3: VCC (Red)     → Pi Pin 2 or 4: 5V
+GPS Pin 6: GND (Black)   → Pi Pin 6: GND
+GPS Pin 5: TX (Blue)     → Pi Pin 10: GPIO15 (RX)  ← GPS transmits to Pi
+GPS Pin 4: RX (Orange)   → Pi Pin 8: GPIO14 (TX)   ← Pi transmits to GPS
+
+Optional (for compass):
+GPS Pin 1: SDA (Green)   → Pi Pin 3: GPIO2 (SDA)
+GPS Pin 2: SCL (Yellow)  → Pi Pin 5: GPIO3 (SCL)
 ```
 
-Enable UART:
+**Enable UART:**
 ```bash
 sudo raspi-config
 # Interface Options → Serial Port
 # "Would you like a login shell accessible over serial?" → No
 # "Would you like the serial port hardware enabled?" → Yes
-# Reboot
+# Exit and reboot
 
-# Device appears as /dev/ttyAMA0
+sudo reboot
 ```
 
-### 5.2 Find GPS Serial Port
-
+**After reboot, verify:**
 ```bash
-# List all serial devices
-ls /dev/tty*
-
-# Common GPS ports:
-# /dev/ttyUSB0  - USB GPS modules
-# /dev/ttyACM0  - Some USB GPS modules
-# /dev/ttyAMA0  - GPIO UART GPS
+ls -l /dev/serial0
+# Should show: /dev/serial0 -> ttyAMA0
 ```
 
-### 5.3 Test GPS Output
+### 5.2 Test GPS Connection
+
+**IMPORTANT:** NEO-M8N uses **38400 baud** (NOT 9600!)
 
 ```bash
+# Set correct baud rate for NEO-M8N
+stty -F /dev/serial0 38400
+
 # Read raw GPS data (Ctrl+C to stop)
-cat /dev/ttyUSB0
+# Go OUTSIDE for this test - GPS needs clear sky view!
+cat /dev/serial0
 
 # You should see NMEA sentences like:
-# $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
-# $GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A
+# $GPGGA,143005,1250.6008,N,08009.3975,E,1,08,0.9,10.0,M,46.9,M,,*47
+# $GPRMC,143005,A,1250.6008,N,08009.3975,E,0.0,0.0,030325,,,A*6B
 ```
+
+**LED Indicators on NEO-M8N:**
+- 🔴 Red LED ON = Module has power (always on)
+- 🔵 Blue LED blinking = GPS fix acquired (only after 1-2 min outside)
 
 **If no output:**
 ```bash
-# Set correct permissions
-sudo chmod 666 /dev/ttyUSB0
+# 1. Add user to dialout group
+sudo usermod -a -G dialout $USER
+# Log out and back in
 
-# Check baud rate (most GPS use 9600)
-stty -F /dev/ttyUSB0 9600
+# 2. Check UART is enabled
+ls -l /dev/serial0
+# Should exist and point to ttyAMA0
 
-# Try reading again
-cat /dev/ttyUSB0
+# 3. Verify baud rate (NEO-M8N uses 38400!)
+stty -F /dev/serial0 38400
+
+# 4. Go OUTSIDE (GPS cannot work indoors)
+# 5. Wait 2-5 minutes for initial fix (cold start)
 ```
 
-### 5.4 Update Configuration
+### 5.3 Update Configuration
 
 Edit `config/config.yaml`:
 ```bash
 nano config/config.yaml
 ```
 
-Update GPS port to match your device:
+**For NEO-M8N GPS, verify these settings:**
 ```yaml
 gps:
   enabled: true
-  port: "/dev/ttyUSB0"  # Change to your actual port
-  baud_rate: 9600
+  port: "/dev/serial0"  # For GPIO UART connection
+  baud_rate: 38400      # NEO-M8N uses 38400, NOT 9600!
   min_satellites: 4
 ```
+
+**Note:** The config file is already set correctly for NEO-M8N. Just verify the values.
 
 Save with `Ctrl+O`, exit with `Ctrl+X`.
 
@@ -551,13 +567,17 @@ sudo reboot
 
 | Aspect | Windows (Testing) | Raspberry Pi (Production) |
 |--------|------------------|---------------------------|
-| GPS | Windows Location API (WiFi) | Serial GPS (NMEA) |
-| Altitude | None (WiFi location) | Real altitude from GPS |
+| GPS | Windows Location API (WiFi) | ReadytoSky NEO-M8N (Serial NMEA) |
+| GPS Port | N/A | `/dev/serial0` (GPIO UART) |
+| Baud Rate | N/A | 38400 (NEO-M8N specific) |
+| Altitude | None (WiFi location) | Real altitude from GPS satellites |
 | RTL-SDR Path | `C:\...\rtl_power.exe` | `/usr/bin/rtl_power` |
 | Platform Detection | Auto (main.py detects) | Auto (main.py detects) |
 | Code Changes | **None needed** | **None needed** |
 
 The code **automatically switches** between Windows and Linux modes!
+
+**📖 For detailed GPS wiring:** See `GPS_WIRING_GUIDE.md`
 
 ---
 

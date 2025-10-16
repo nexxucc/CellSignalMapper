@@ -47,12 +47,30 @@ scanner:
 # GPS Settings
 gps:
   enabled: true
-  port: "/dev/ttyUSB0"  # Serial port for GPS module on Raspberry Pi
-                         # Common options: /dev/ttyUSB0 (USB GPS), /dev/ttyAMA0 (GPIO UART)
-                         # This setting is ignored on Windows (uses WiFi Location Services)
-  baud_rate: 9600
+
+  # GPS Source Selection
+  # Options: "serial", "mavlink", "mock"
+  source: "mavlink"  # Use "mavlink" for Pixhawk/PX4, "serial" for direct GPS module
+
+  # Serial GPS settings (for direct GPS module connection)
+  port: "/dev/serial0"  # Serial port for GPS module on Raspberry Pi
+                        # Holybro/Robu.in NEO-M8N: /dev/serial0 or /dev/ttyAMA0 (GPIO UART)
+                        # Generic USB GPS: /dev/ttyUSB0
+                        # This setting is ignored on Windows (uses WiFi Location Services)
+  baud_rate: 9600       # NEO-M8N default baud rate (9600 most common, try 38400 if this doesn't work)
+                        # Test with: stty -F /dev/serial0 9600 && cat /dev/serial0
   timeout: 1.0
-  min_satellites: 4  # Minimum satellites for valid fix
+  min_satellites: 4     # Minimum satellites for valid fix
+
+  # MAVLink GPS settings (for Pixhawk/PX4 connection)
+  mavlink_port: "/dev/ttyACM0"  # Pixhawk USB connection
+  mavlink_baud: 57600           # Pixhawk default baud rate
+
+  # Compass settings (HMC5883L magnetometer - optional)
+  # Note: If using MAVLink, compass data comes from Pixhawk automatically
+  compass_enabled: false  # Set to true if you connected the 4-pin compass connector (serial GPS only)
+  compass_i2c_bus: 1      # I2C bus number (1 for Raspberry Pi 5)
+  compass_i2c_address: 0x1E  # HMC5883L default I2C address
 
 # Flight Pattern (for drone operations)
 flight:

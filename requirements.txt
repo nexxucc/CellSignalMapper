@@ -8,6 +8,7 @@ scipy>=1.10.0
 # GPS Support
 pyserial>=3.5
 pynmea2>=1.18.0
+pymavlink>=2.4.37  # For Pixhawk/PX4 MAVLink GPS support
 
 # Configuration
 PyYAML>=6.0

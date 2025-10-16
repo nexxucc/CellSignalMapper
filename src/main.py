@@ -14,7 +14,7 @@ import time
 import platform
 
 from scanner import RTLScannerCLI
-from gps import GPSReader, MockGPSReader, WindowsGPSReader
+from gps import GPSReader, MockGPSReader, WindowsGPSReader, MAVLinkGPSReader, MAVLINK_AVAILABLE
 from utils import DataLogger
 from processor import HeatmapGenerator
 from exporter import KMLExporter
@@ -73,7 +73,7 @@ def load_config(config_path: str = "config/config.yaml") -> dict:
 
 def get_gps_reader(config: dict, use_mock_gps: bool = False):
     """
-    Get appropriate GPS reader based on platform
+    Get appropriate GPS reader based on configuration and platform
 
     Args:
         config: Configuration dictionary
@@ -82,12 +82,44 @@ def get_gps_reader(config: dict, use_mock_gps: bool = False):
     Returns:
         GPS reader instance
     """
+    logger = logging.getLogger(__name__)
+
     if use_mock_gps:
+        logger.info("Using mock GPS (simulated data)")
         return MockGPSReader(config)
-    elif platform.system() == 'Windows':
-        return WindowsGPSReader(config)
+
+    # Check GPS source setting
+    gps_source = config['gps'].get('source', 'serial').lower()
+
+    if gps_source == 'mavlink':
+        # Use MAVLink GPS (from Pixhawk/PX4)
+        if not MAVLINK_AVAILABLE:
+            logger.error("MAVLink GPS requested but pymavlink not installed!")
+            logger.error("Install with: pip install pymavlink")
+            logger.info("Falling back to serial GPS")
+            return GPSReader(config)
+        logger.info("Using MAVLink GPS (Pixhawk/PX4)")
+        return MAVLinkGPSReader(config)
+
+    elif gps_source == 'mock':
+        logger.info("Using mock GPS (from config)")
+        return MockGPSReader(config)
+
+    elif gps_source == 'serial':
+        # Use serial GPS (direct GPS module connection)
+        if platform.system() == 'Windows':
+            logger.info("Using Windows GPS (WiFi location)")
+            return WindowsGPSReader(config)
+        else:
+            logger.info("Using serial GPS (direct module)")
+            return GPSReader(config)
+
     else:
-        return GPSReader(config)
+        logger.warning(f"Unknown GPS source '{gps_source}', falling back to serial")
+        if platform.system() == 'Windows':
+            return WindowsGPSReader(config)
+        else:
+            return GPSReader(config)
 
 
 def get_scanner(config: dict):
@@ -191,18 +223,20 @@ def single_scan_mode(config: dict, use_mock_gps: bool = False):
         gps_reader.disconnect()
 
 
-def continuous_scan_mode(config: dict, interval: int = 10, use_mock_gps: bool = False):
+def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool = False):
     """
-    Continuously scan at regular intervals (for drone flight)
+    Continuously scan at regular intervals (optimized for manual drone flight)
 
     Args:
         config: Configuration dictionary
-        interval: Seconds between scans
+        interval: Seconds between scans (default 0.5s for rapid collection)
         use_mock_gps: Use simulated GPS data
     """
     logger = logging.getLogger(__name__)
-    logger.info("=== Starting Continuous Scan Mode ===")
-    logger.info(f"Scan interval: {interval} seconds")
+    logger.info("=== Starting Continuous Scan Mode (Manual Flight) ===")
+    logger.info(f"Scan interval: {interval}s")
+    logger.info("Optimized for rapid data collection during flight")
+    logger.info("Press Ctrl+C to stop and save data")
 
     # Initialize components
     scanner = get_scanner(config)
@@ -211,32 +245,36 @@ def continuous_scan_mode(config: dict, interval: int = 10, use_mock_gps: bool = 
 
     try:
         # Initialize RTL-SDR
+        logger.info("Initializing RTL-SDR...")
         if not scanner.initialize():
             logger.error("Failed to initialize RTL-SDR")
             return
 
         # Connect GPS
         if config['gps']['enabled']:
+            logger.info("Connecting to GPS...")
             if gps_reader.connect():
-                logger.info("Waiting for initial GPS fix...")
-                gps_reader.wait_for_fix(timeout=60)
+                logger.info("Waiting for GPS fix (GO OUTSIDE if indoors)...")
+                gps_reader.wait_for_fix(timeout=30)
+                logger.info("GPS ready!")
             else:
-                logger.warning("GPS connection failed, proceeding without GPS")
+                logger.warning("GPS connection failed - will proceed without coordinates")
+
+        logger.info("\n✓ System ready! Starting data collection...")
+        logger.info("=" * 60)
 
         scan_count = 0
+        start_time = time.time()
 
         while True:
             scan_count += 1
-            logger.info(f"\n=== Scan #{scan_count} ===")
 
-            # Get current position
-            gps_coord = gps_reader.read_position(timeout=2) if gps_reader.is_connected else None
+            # Get current position (fast, non-blocking)
+            gps_coord = gps_reader.read_position(timeout=0.1) if gps_reader.is_connected else None
 
             if gps_coord:
-                logger.info(f"Position: {gps_coord}")
                 lat, lon, alt = gps_coord.latitude, gps_coord.longitude, gps_coord.altitude
             else:
-                logger.warning("No GPS fix")
                 lat, lon, alt = None, None, None
 
             # Perform scan
@@ -246,12 +284,11 @@ def continuous_scan_mode(config: dict, interval: int = 10, use_mock_gps: bool = 
             timestamp = datetime.now()
             data_logger.log_scan_results(lat, lon, alt, scan_results, timestamp)
 
-            # Display quick summary
-            for band_name, results in scan_results.items():
-                if results and isinstance(results, dict):
-                    logger.info(f"{band_name}: Avg={results.get('average_power_dbm', 0):.2f} dBm, Max={results.get('max_power_dbm', 0):.2f} dBm")
-
-            logger.info(f"Total measurements: {len(data_logger)}")
+            # Display lightweight progress (every 10 scans to reduce clutter)
+            if scan_count % 10 == 0:
+                elapsed = time.time() - start_time
+                rate = scan_count / elapsed if elapsed > 0 else 0
+                logger.info(f"Scan #{scan_count} | {len(data_logger)} measurements | {rate:.1f} scans/sec")
 
             # Wait for next scan
             time.sleep(interval)
@@ -328,9 +365,9 @@ def main():
 
     parser.add_argument(
         '--interval',
-        type=int,
-        default=10,
-        help='Interval between scans in continuous mode (seconds)'
+        type=float,
+        default=0.5,
+        help='Interval between scans in continuous mode (seconds, default: 0.5 for rapid collection)'
     )
 
     parser.add_argument(

@@ -17,7 +17,16 @@
       "Bash(C:/Users/jainv/anaconda3/python.exe -c \"import yaml; config = yaml.safe_load(open(''config/config.yaml'')); print(type(config[''bands''][''band_5''][''downlink_start'']))\")",
       "Bash(C:/Users/jainv/anaconda3/python.exe -c \"import yaml; config = yaml.safe_load(open(''config/config.yaml'')); print(''Type:'', type(config[''bands''][''band_5''][''downlink_start''])); print(''Value:'', config[''bands''][''band_5''][''downlink_start''])\")",
       "Bash(C:/Users/jainv/anaconda3/python.exe src/main.py --mode single)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebFetch(domain:robu.in)",
+      "WebSearch",
+      "WebFetch(domain:docs.holybro.com)",
+      "Read(//c/Users/jainv/Downloads/**)",
+      "Bash(sshpass -p '1234' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null drone@10.149.47.166 'ls -la /dev/tty* | grep -E \"\"(USB|ACM|AMA)\"\" && echo \"\"---\"\" && ps aux | grep -i mav')",
+      "Bash(del test_gps.py)",
+      "Bash(del GPS_WIRING_GUIDE.md)",
+      "Bash(python:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
