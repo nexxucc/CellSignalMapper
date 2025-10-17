@@ -1,0 +1,107 @@
+# Cell Signal Mapper Configuration
+
+# RTL-SDR Settings
+rtl_sdr:
+  device_index: 0  # RTL-SDR device ID (0 for first device)
+  sample_rate: 2048000  # 2.048 MHz sample rate
+  gain: 40  # Manual gain (0-50) or 'auto'
+  ppm_error: 0  # Frequency correction in PPM
+
+# LTE Band Configuration
+# Currently supports Band 5 (850 MHz) for India
+# Future bands can be added here as hardware permits
+bands:
+  band_5:
+    name: "LTE Band 5 (850 MHz)"
+    enabled: true
+    downlink_start: 869000000  # 869 MHz
+    downlink_end: 894000000    # 894 MHz
+    uplink_start: 824000000    # 824 MHz (for reference only, not scanned)
+    uplink_end: 849000000      # 849 MHz
+
+  # Future band support (currently disabled due to hardware limits)
+  band_3:
+    name: "LTE Band 3 (1800 MHz)"
+    enabled: false
+    downlink_start: 1805000000
+    downlink_end: 1880000000
+
+  band_40:
+    name: "LTE Band 40 (2300 MHz)"
+    enabled: false
+    downlink_start: 2300000000
+    downlink_end: 2400000000
+
+# Scanning Parameters
+scan:
+  integration_time: 1.0  # Seconds to integrate signal (rtl_power minimum is 1 second)
+
+# GPS Settings
+gps:
+  enabled: true
+
+  # GPS Source Selection
+  # Options: "serial", "mavlink", "mock"
+  source: "mavlink"  # Use "mavlink" for Pixhawk/PX4, "serial" for direct GPS module
+
+  # Serial GPS settings (for direct GPS module connection)
+  port: "/dev/serial0"  # Serial port for GPS module on Raspberry Pi
+                        # Holybro/Robu.in NEO-M8N: /dev/serial0 or /dev/ttyAMA0 (GPIO UART)
+                        # Generic USB GPS: /dev/ttyUSB0
+                        # This setting is ignored on Windows (uses WiFi Location Services)
+  baud_rate: 9600       # NEO-M8N default baud rate (9600 most common, try 38400 if this doesn't work)
+                        # Test with: stty -F /dev/serial0 9600 && cat /dev/serial0
+  timeout: 1.0
+  min_satellites: 4     # Minimum satellites for valid fix
+
+  # MAVLink GPS settings (for Pixhawk/PX4 connection)
+  mavlink_port: "/dev/ttyACM0"  # Pixhawk USB connection
+  mavlink_baud: 57600           # Pixhawk default baud rate
+
+  # Compass settings (HMC5883L magnetometer - optional)
+  # Note: If using MAVLink, compass data comes from Pixhawk automatically
+  compass_enabled: false  # Set to true if you connected the 4-pin compass connector (serial GPS only)
+  compass_i2c_bus: 1      # I2C bus number (1 for Raspberry Pi 5)
+  compass_i2c_address: 0x1E  # HMC5883L default I2C address
+
+# Data Logging
+logging:
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_to_file: true
+  log_dir: "logs"
+  data_dir: "data"
+  save_raw_samples: false  # Save IQ samples (creates large files)
+
+# Visualization
+visualization:
+  enabled: true
+  output_dir: "output"
+
+  # Heatmap settings (for Band 5 LTE 850 MHz)
+  heatmap:
+    resolution_meters: 10        # Grid resolution for interpolation
+    interpolation_method: "idw"  # Inverse Distance Weighting (idw, linear, cubic)
+    radius_pixels: 15            # Heat blob size
+    min_opacity: 0.4             # Transparency (0-1)
+    max_zoom: 18                 # Maximum zoom level for web map
+    colormap: "RdYlGn_r"         # Red(poor) → Yellow → Green(good)
+
+  # Signal strength thresholds (dBm) for Band 5
+  signal_thresholds:
+    excellent: -60   # Strong signal (green)
+    good: -70        # Good signal (yellow-green)
+    fair: -80        # Fair signal (orange)
+    poor: -90        # Weak signal (red)
+
+  # Legacy settings (for compatibility)
+  heatmap_resolution: 100  # Interpolation points per axis
+  color_scheme: "jet"  # matplotlib colormap (jet, viridis, plasma, etc)
+  min_signal_threshold: -120  # dBm - signals below this are considered noise
+  max_signal_threshold: -40   # dBm - typical max from nearby tower
+
+# Export Settings
+export:
+  kml_enabled: true
+  csv_enabled: true
+  json_enabled: true
+  altitude_layers: true  # Create separate KML layers for each altitude

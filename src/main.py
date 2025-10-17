@@ -163,7 +163,7 @@ def single_scan_mode(config: dict, use_mock_gps: bool = False):
                 logger.warning("GPS connection failed, proceeding without GPS")
             else:
                 logger.info("Waiting for GPS fix...")
-                gps_reader.wait_for_fix(timeout=30)
+                gps_reader.wait_for_fix(timeout=90)
 
         # Get current position
         gps_coord = gps_reader.read_position() if gps_reader.is_connected else None
@@ -257,7 +257,7 @@ def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool
             logger.info("Connecting to GPS...")
             if gps_reader.connect():
                 logger.info("Waiting for GPS fix (GO OUTSIDE if indoors)...")
-                gps_reader.wait_for_fix(timeout=30)
+                gps_reader.wait_for_fix(timeout=90)
                 logger.info("GPS ready!")
             else:
                 logger.warning("GPS connection failed - will proceed without coordinates")
@@ -284,8 +284,8 @@ def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool
 
             scan_count += 1
 
-            # Get current position (fast, non-blocking)
-            gps_coord = gps_reader.read_position(timeout=0.1) if gps_reader.is_connected else None
+            # Get current position (1.0s timeout matches Pixhawk GPS update rate)
+            gps_coord = gps_reader.read_position(timeout=1.0) if gps_reader.is_connected else None
 
             if gps_coord:
                 lat, lon, alt = gps_coord.latitude, gps_coord.longitude, gps_coord.altitude
