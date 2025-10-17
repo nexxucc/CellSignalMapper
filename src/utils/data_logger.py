@@ -202,7 +202,9 @@ class DataLogger:
         """
         # Simple approximation: 1 degree ≈ 111 km
         lat_delta = radius_meters / 111000
-        lon_delta = radius_meters / (111000 * abs(latitude / 90))
+        # Use cosine correction for longitude, prevent division by zero
+        import math
+        lon_delta = radius_meters / (111000 * max(0.01, abs(math.cos(math.radians(latitude)))))
 
         nearby = []
         for m in self.measurements:

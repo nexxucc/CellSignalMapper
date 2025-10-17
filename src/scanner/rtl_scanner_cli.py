@@ -134,10 +134,13 @@ class RTLScannerCLI:
             end_mhz = end_freq_hz / 1e6
 
             # Build command
+            # Note: rtl_power -i requires integer seconds, minimum 1
+            integration_seconds = max(1, int(integration_time))
+
             cmd = [
                 self.rtl_power_path,
                 "-f", f"{start_mhz}M:{end_mhz}M:1k",  # Freq range with 1kHz steps
-                "-i", str(int(integration_time)),  # Integration interval
+                "-i", str(integration_seconds),  # Integration interval (minimum 1 second)
                 "-1",  # Single scan
                 "-d", str(self.config['rtl_sdr']['device_index']),  # Device index
                 "-g", str(self.config['rtl_sdr']['gain']),  # Gain
@@ -151,7 +154,7 @@ class RTLScannerCLI:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=integration_time + 10
+                timeout=integration_seconds + 10
             )
 
             if result.returncode != 0:
@@ -213,6 +216,8 @@ class RTLScannerCLI:
             return None
         except Exception as e:
             logger.error(f"Error scanning frequency range: {e}")
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
             return None
 
     def scan_lte_bands(self, bands_config: Dict) -> Dict[str, float]:
@@ -271,7 +276,8 @@ class RTLScannerCLI:
                     'average_power_dbm': -999.0,
                     'max_power_dbm': -999.0,
                     'frequency_mhz': 0.0,
-                    'num_samples': 0
+                    'num_samples': 0,
+                    'raw_data': []  # Empty list for consistency
                 }
 
         return results

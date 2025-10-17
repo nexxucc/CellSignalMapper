@@ -26,7 +26,10 @@
       "Bash(del test_gps.py)",
       "Bash(del GPS_WIRING_GUIDE.md)",
       "Bash(python:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:www.rtl-sdr.com)"
     ],
     "deny": [],
     "ask": []

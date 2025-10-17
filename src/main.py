@@ -16,8 +16,8 @@ import platform
 from scanner import RTLScannerCLI
 from gps import GPSReader, MockGPSReader, WindowsGPSReader, MAVLinkGPSReader, MAVLINK_AVAILABLE
 from utils import DataLogger
-from processor import HeatmapGenerator
 from exporter import KMLExporter
+from visualization import InteractiveHeatmapGenerator
 
 
 def setup_logging(config: dict) -> None:
@@ -223,7 +223,7 @@ def single_scan_mode(config: dict, use_mock_gps: bool = False):
         gps_reader.disconnect()
 
 
-def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool = False):
+def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool = False, duration_minutes: float = 15.0):
     """
     Continuously scan at regular intervals (optimized for manual drone flight)
 
@@ -231,12 +231,14 @@ def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool
         config: Configuration dictionary
         interval: Seconds between scans (default 0.5s for rapid collection)
         use_mock_gps: Use simulated GPS data
+        duration_minutes: Auto-stop after this many minutes (default 15.0 for typical flight time)
     """
     logger = logging.getLogger(__name__)
     logger.info("=== Starting Continuous Scan Mode (Manual Flight) ===")
     logger.info(f"Scan interval: {interval}s")
+    logger.info(f"Flight duration: {duration_minutes} minutes (auto-stop)")
     logger.info("Optimized for rapid data collection during flight")
-    logger.info("Press Ctrl+C to stop and save data")
+    logger.info("Press Ctrl+C to stop early and save data")
 
     # Initialize components
     scanner = get_scanner(config)
@@ -265,8 +267,21 @@ def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool
 
         scan_count = 0
         start_time = time.time()
+        duration_seconds = duration_minutes * 60
+
+        # Calculate expected end time
+        end_time = start_time + duration_seconds
+        end_time_str = datetime.fromtimestamp(end_time).strftime('%H:%M:%S')
+        logger.info(f"Collection will auto-stop at: {end_time_str} (in {duration_minutes} min)")
 
         while True:
+            # Check if duration elapsed
+            elapsed = time.time() - start_time
+            if elapsed >= duration_seconds:
+                logger.info(f"\n⏱️  Flight duration of {duration_minutes} minutes reached")
+                logger.info("Auto-stopping data collection...")
+                break
+
             scan_count += 1
 
             # Get current position (fast, non-blocking)
@@ -286,18 +301,21 @@ def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool
 
             # Display lightweight progress (every 10 scans to reduce clutter)
             if scan_count % 10 == 0:
-                elapsed = time.time() - start_time
+                remaining_seconds = duration_seconds - elapsed
+                remaining_minutes = remaining_seconds / 60
                 rate = scan_count / elapsed if elapsed > 0 else 0
-                logger.info(f"Scan #{scan_count} | {len(data_logger)} measurements | {rate:.1f} scans/sec")
+                logger.info(f"Scan #{scan_count} | {len(data_logger)} measurements | {rate:.1f} scans/sec | {remaining_minutes:.1f} min remaining")
 
             # Wait for next scan
             time.sleep(interval)
 
     except KeyboardInterrupt:
-        logger.info("\n=== Continuous scan stopped by user ===")
-
-        # Save all collected data
-        logger.info("Saving data...")
+        logger.info("\n=== Continuous scan stopped by user (early) ===")
+    except Exception as e:
+        logger.error(f"Error during continuous scan: {e}", exc_info=True)
+    finally:
+        # Save all collected data (runs whether auto-stopped, manually stopped, or error)
+        logger.info("\nSaving data...")
 
         if config['export']['csv_enabled']:
             csv_path = data_logger.save_to_csv()
@@ -311,35 +329,84 @@ def continuous_scan_mode(config: dict, interval: float = 0.5, use_mock_gps: bool
         if len(data_logger) > 0:
             df = data_logger.get_dataframe()
 
-            # Heatmaps
-            if df['latitude'].notna().any():
-                logger.info("Generating heatmaps...")
-                heatmap_gen = HeatmapGenerator(config)
-                heatmap_gen.generate_all_heatmaps(df)
-                heatmap_gen.generate_signal_distribution_plot(df)
-                heatmap_gen.generate_coverage_map(df)
-
-            # KML export
+            # KML export (for Google Earth)
             if config['export']['kml_enabled'] and df['latitude'].notna().any():
                 logger.info("Generating KML exports...")
                 kml_exporter = KMLExporter(config)
-                kml_exporter.export_to_kml(df, include_paths=True)
-                kml_exporter.export_coverage_zones(df)
+                # Use session_id for unique filename
+                kml_filename = f"signal_map_{data_logger.session_id}.kml"
+                kml_path = kml_exporter.export_to_kml(df, output_filename=kml_filename, include_paths=True)
+                logger.info(f"KML: {kml_path}")
 
             # Summary statistics
             stats = data_logger.get_summary_statistics()
+            elapsed_total = time.time() - start_time
             logger.info("\n=== Session Summary ===")
+            logger.info(f"Collection time: {elapsed_total/60:.1f} minutes")
+            logger.info(f"Total scans: {scan_count}")
             logger.info(f"Total measurements: {stats['total_measurements']}")
             logger.info(f"Bands scanned: {', '.join(stats['bands_scanned'])}")
             logger.info(f"Signal range: {stats['signal_stats']['min_dbm']:.1f} to {stats['signal_stats']['max_dbm']:.1f} dBm")
+            logger.info("\nℹ️  To generate interactive heatmap, run:")
+            logger.info(f"   python src/main.py --mode visualize --input {json_path}")
 
         logger.info("\n=== Scan Session Complete ===")
 
-    except Exception as e:
-        logger.error(f"Error during continuous scan: {e}", exc_info=True)
-    finally:
+        # Cleanup devices
         scanner.close()
         gps_reader.disconnect()
+
+
+def visualize_mode(config: dict, input_file: str, band_name: str = 'band_5'):
+    """
+    Generate interactive heatmap visualization from saved flight data
+
+    Args:
+        config: Configuration dictionary
+        input_file: Path to JSON file from previous scan
+        band_name: Band to visualize (default: band_5)
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("=== Starting Visualization Mode ===")
+    logger.info(f"Input file: {input_file}")
+    logger.info(f"Band: {band_name}")
+
+    try:
+        # Check if input file exists
+        input_path = Path(input_file)
+        if not input_path.exists():
+            logger.error(f"Input file not found: {input_file}")
+            logger.error("Please provide a valid JSON file from a previous scan")
+            return
+
+        # Check if visualization is enabled
+        if not config['visualization'].get('enabled', True):
+            logger.warning("Visualization is disabled in config. Enabling it for this run...")
+            config['visualization']['enabled'] = True
+
+        # Create visualization generator
+        viz_gen = InteractiveHeatmapGenerator(config)
+
+        # Generate interactive map
+        logger.info("Generating interactive heatmap...")
+        output_path = viz_gen.generate_interactive_map(
+            str(input_path),
+            band_name=band_name
+        )
+
+        logger.info("\n=== Visualization Complete ===")
+        logger.info(f"✓ Interactive map saved to: {output_path}")
+        logger.info(f"\nTo view:")
+        logger.info(f"  1. Open the file in any web browser")
+        logger.info(f"  2. Use mouse to pan and zoom")
+        logger.info(f"  3. Click markers for detailed data")
+        logger.info(f"  4. Toggle layers using control in top-right")
+
+    except ValueError as e:
+        logger.error(f"Data error: {e}")
+        logger.error("Make sure the JSON file contains valid GPS coordinates and signal data")
+    except Exception as e:
+        logger.error(f"Error during visualization: {e}", exc_info=True)
 
 
 def main():
@@ -358,9 +425,9 @@ def main():
     parser.add_argument(
         '--mode',
         type=str,
-        choices=['single', 'continuous'],
+        choices=['single', 'continuous', 'visualize'],
         default='single',
-        help='Scan mode: single (one scan) or continuous (repeated scans)'
+        help='Scan mode: single (one scan), continuous (repeated scans), or visualize (generate map from data)'
     )
 
     parser.add_argument(
@@ -368,6 +435,26 @@ def main():
         type=float,
         default=0.5,
         help='Interval between scans in continuous mode (seconds, default: 0.5 for rapid collection)'
+    )
+
+    parser.add_argument(
+        '--duration',
+        type=float,
+        default=15.0,
+        help='Flight duration in minutes for continuous mode (default: 15.0, auto-stops after this time)'
+    )
+
+    parser.add_argument(
+        '--input',
+        type=str,
+        help='Input JSON file for visualization mode (from previous scan)'
+    )
+
+    parser.add_argument(
+        '--band',
+        type=str,
+        default='band_5',
+        help='Band to visualize (default: band_5)'
     )
 
     parser.add_argument(
@@ -393,8 +480,14 @@ def main():
         # Run appropriate mode
         if args.mode == 'single':
             single_scan_mode(config, use_mock_gps=args.mock_gps)
-        else:
-            continuous_scan_mode(config, interval=args.interval, use_mock_gps=args.mock_gps)
+        elif args.mode == 'continuous':
+            continuous_scan_mode(config, interval=args.interval, use_mock_gps=args.mock_gps, duration_minutes=args.duration)
+        elif args.mode == 'visualize':
+            if not args.input:
+                logger.error("Visualization mode requires --input parameter")
+                logger.error("Example: python src/main.py --mode visualize --input output/scan_20250116_143215.json")
+                return 1
+            visualize_mode(config, input_file=args.input, band_name=args.band)
 
     except Exception as e:
         print(f"Fatal error: {e}", file=sys.stderr)

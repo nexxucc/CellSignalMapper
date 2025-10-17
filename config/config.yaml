@@ -18,7 +18,6 @@ bands:
     downlink_end: 894000000    # 894 MHz
     uplink_start: 824000000    # 824 MHz (for reference only, not scanned)
     uplink_end: 849000000      # 849 MHz
-    scan_points: 10        # Number of frequency points to scan
 
   # Future band support (currently disabled due to hardware limits)
   band_3:
@@ -26,23 +25,16 @@ bands:
     enabled: false
     downlink_start: 1805000000
     downlink_end: 1880000000
-    scan_points: 10
 
   band_40:
     name: "LTE Band 40 (2300 MHz)"
     enabled: false
     downlink_start: 2300000000
     downlink_end: 2400000000
-    scan_points: 10
 
 # Scanning Parameters
 scan:
-  integration_time: 1.0  # Seconds to integrate signal at each frequency
-
-scanner:
-  dwell_time: 0.5  # Seconds to measure at each frequency point
-  samples_per_measurement: 256000  # Number of IQ samples per measurement
-  averaging_samples: 5  # Number of measurements to average for stability
+  integration_time: 1.0  # Seconds to integrate signal (rtl_power minimum is 1 second)
 
 # GPS Settings
 gps:
@@ -72,12 +64,6 @@ gps:
   compass_i2c_bus: 1      # I2C bus number (1 for Raspberry Pi 5)
   compass_i2c_address: 0x1E  # HMC5883L default I2C address
 
-# Flight Pattern (for drone operations)
-flight:
-  altitude_levels: [10, 20, 30, 50]  # Meters - altitudes to scan at
-  grid_spacing: 50  # Meters between measurement points
-  hover_time: 3  # Seconds to hover at each point for measurement
-
 # Data Logging
 logging:
   log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
@@ -88,7 +74,26 @@ logging:
 
 # Visualization
 visualization:
+  enabled: true
   output_dir: "output"
+
+  # Heatmap settings (for Band 5 LTE 850 MHz)
+  heatmap:
+    resolution_meters: 10        # Grid resolution for interpolation
+    interpolation_method: "idw"  # Inverse Distance Weighting (idw, linear, cubic)
+    radius_pixels: 15            # Heat blob size
+    min_opacity: 0.4             # Transparency (0-1)
+    max_zoom: 18                 # Maximum zoom level for web map
+    colormap: "RdYlGn_r"         # Red(poor) → Yellow → Green(good)
+
+  # Signal strength thresholds (dBm) for Band 5
+  signal_thresholds:
+    excellent: -60   # Strong signal (green)
+    good: -70        # Good signal (yellow-green)
+    fair: -80        # Fair signal (orange)
+    poor: -90        # Weak signal (red)
+
+  # Legacy settings (for compatibility)
   heatmap_resolution: 100  # Interpolation points per axis
   color_scheme: "jet"  # matplotlib colormap (jet, viridis, plasma, etc)
   min_signal_threshold: -120  # dBm - signals below this are considered noise
