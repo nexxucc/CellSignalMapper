@@ -25,25 +25,25 @@ This system maps cellular network coverage by scanning LTE bands during autonomo
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Drone Platform                       │
-│                                                         │
+┌────────────────────────────────────────────────────────┐
+│                    Drone Platform                      │
+│                                                        │
 │  ┌────────────┐  MAVLink   ┌──────────────────┐        │
 │  │  Pixhawk   │◄──────────►│ Raspberry Pi 5   │        │
 │  │ Autopilot  │  GPS/Telem │  (Processing)    │        │
 │  └─────┬──────┘            └────────┬─────────┘        │
-│        │                            │                   │
+│        │                            │                  │
 │   ┌────▼────┐                  ┌────▼────┐             │
 │   │   GPS   │                  │ RTL-SDR │             │
 │   │ Module  │                  │   V4    │             │
 │   └─────────┘                  └────┬────┘             │
-│                                     │                   │
+│                                     │                  │
 │                                ┌────▼────┐             │
 │                                │ Antenna │             │
 │                                │700-2700 │             │
 │                                │   MHz   │             │
 │                                └─────────┘             │
-└─────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────┘
 
 Data Flow:
 GPS → Pixhawk → MAVLink → Raspberry Pi → Data Logger
